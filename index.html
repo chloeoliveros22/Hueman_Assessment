@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>Hue-Man: Color Vision Screening</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --primary: #0D1936;
+    --bg: #EFEFEF;
+    --white: #FFFFFF;
+    --accent-blue: #2D7DF7;
+    --text-dark: #071D49;
+    --text-body: #27344C;
+    --muted: #6C7A94;
+    --circle-red: #FF7B7B;
+    --circle-yellow: #FFD93D;
+    --circle-green: #68D391;
+    --circle-blue: #7EA8FF;
+    --border: #E3E4E6;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text-body);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .content-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 24px;
+    box-sizing: border-box;
+  }
+
+  /* ---- decorative background, echoing Hue-Man's blob wash ---- */
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(1px);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .blob-1 { width: 220px; height: 220px; background: var(--circle-red); opacity: .35; top: -90px; left: -80px; }
+  .blob-2 { width: 140px; height: 140px; background: var(--circle-yellow); opacity: .3; top: 30px; right: -60px; }
+  .blob-3 { width: 170px; height: 170px; background: var(--circle-blue); opacity: .28; bottom: 120px; left: -70px; }
+  .blob-4 { width: 150px; height: 150px; background: var(--circle-green); opacity: .25; bottom: -60px; right: -50px; }
+
+  header.app-header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 22px 0 8px;
+  }
+  .logo-mark { height: 22px; width: auto; display: block; flex: none; }
+  .wordmark { font-weight: 800; letter-spacing: 0.5px; color: var(--primary); font-size: 17px; }
+
+  main {
+    position: relative;
+    z-index: 1;
+    padding: 8px 0 40px;
+  }
+
+  .screen { display: none; animation: fade .25s ease; }
+  .screen.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: var(--white);
+    border-radius: 22px;
+    padding: 22px 20px;
+    box-shadow: 0 8px 24px rgba(13,25,54,0.08);
+  }
+
+  h1.title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 6px 0 10px;
+    line-height: 1.25;
+  }
+  h2.subtitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent-blue);
+    text-transform: none;
+    margin: 0 0 6px;
+  }
+  p.copy { font-size: 14.5px; line-height: 1.55; color: var(--text-body); margin: 0 0 14px; }
+  p.copy strong { color: var(--primary); }
+
+  .progress-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 4px 0 16px;
+    font-size: 12.5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .progress-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent-blue);
+    border-radius: 4px;
+    transition: width .3s ease;
+  }
+
+  /* ---- buttons ---- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 15px 18px;
+    border-radius: 999px;
+    border: none;
+    font-size: 15.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--border); }
+  .btn-blue { background: var(--accent-blue); color: #fff; }
+  .btn-gray { background: var(--muted); color: #fff; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn-row { display: flex; gap: 10px; margin-top: 18px; }
+  .btn-row .btn { width: auto; flex: 1; }
+
+  /* ---- Ishihara plate ---- */
+  .plate-wrap { display: flex; justify-content: center; margin: 6px 0 18px; }
+  .plate-frame {
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(13,25,54,0.12);
+  }
+  .plate-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
+  .plate-hint { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  input.text-input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1.5px solid var(--border);
+    font-size: 16px;
+    text-align: center;
+    color: var(--primary);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  input.text-input:focus { outline: none; border-color: var(--accent-blue); }
+
+  /* ---- on-screen numpad (mirrors the app's numpad input) ---- */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .numpad-btn {
+    padding: 14px 0;
+    border-radius: 14px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    color: var(--primary);
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .1s ease, background .1s ease;
+  }
+  .numpad-btn:active { transform: scale(0.95); background: var(--border); }
+  .numpad-clear, .numpad-back { font-size: 13.5px; color: var(--muted); }
+
+  .link-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13.5px;
+    text-decoration: underline;
+    padding: 6px 0 2px;
+    cursor: pointer;
+  }
+
+  /* ---- Farnsworth caps ---- */
+  .cap-pool-label {
+    font-size: 11.5px; font-weight: 800; color: var(--muted);
+    letter-spacing: .3px; margin-bottom: 8px; text-align: center;
+  }
+
+  .cap-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: clamp(4px, 0.8vw, 12px);
+    justify-content: center;
+    margin-bottom: 6px;
+    width: 100%;
+  }
+  .cap-slot {
+    flex: 1 1 0;
+    min-width: 24px;
+    max-width: 64px;
+    aspect-ratio: 1 / 1;
+    border-radius: 22%;
+    transition: transform .12s ease, border-color .12s ease;
+  }
+  .cap-slot.filled { cursor: pointer; border: 3px solid transparent; }
+  .cap-slot.filled.current { border-color: var(--primary); transform: scale(1.06); }
+  .cap-slot.filled:active { transform: scale(0.94); }
+  .cap-slot.empty {
+    background: #fff;
+    border: 1.5px dashed var(--border);
+    cursor: default;
+  }
+  .cap-slot.ref-slot { cursor: default; border: 3px solid var(--primary); }
+  .cap-slot.filled { touch-action: none; }
+  .cap-slot.dragging { opacity: 0.35; }
+  .cap-drag-ghost {
+    position: fixed;
+    width: 52px; height: 52px;
+    border-radius: 22%;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: 0 8px 20px rgba(13,25,54,0.35);
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+
+  /* ---- Color discrimination swatches ---- */
+  .swatch-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px 0 6px;
+    flex-wrap: wrap;
+  }
+  .swatch {
+    width: 58px; height: 58px;
+    border-radius: 14px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: transform .1s ease;
+  }
+  .swatch:active { transform: scale(0.93); }
+  .swatch.picked { border-color: var(--primary); }
+
+  /* ---- results ---- */
+  .result-block {
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .result-block .rb-title { font-size: 12.5px; font-weight: 800; color: var(--accent-blue); letter-spacing: .2px; margin-bottom: 4px; }
+  .result-block .rb-headline { font-size: 15.5px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+  .result-block .rb-detail { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  .cta-card {
+    margin-top: 18px;
+    background: var(--primary);
+    border-radius: 22px;
+    padding: 22px 20px;
+    color: #fff;
+  }
+  .cta-card h3 { margin: 0 0 8px; font-size: 17px; font-weight: 800; }
+  .cta-card p { margin: 0 0 16px; font-size: 13.5px; line-height: 1.5; color: #C9D2E8; }
+  .cta-card .btn-blue { background: var(--accent-blue); }
+
+  .note {
+    font-size: 12px; color: var(--muted); text-align: center; margin-top: 12px; line-height: 1.5;
+  }
+
+  /* ---- combined summary (suggested profile + per-test breakdown) ---- */
+  .summary-hero {
+    text-align: center;
+    padding: 22px 18px 20px;
+    border-radius: 20px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--primary), var(--accent-blue));
+    margin-bottom: 16px;
+  }
+  .summary-hero .sh-eyebrow { font-size: 11.5px; font-weight: 700; letter-spacing: .4px; opacity: .8; text-transform: uppercase; }
+  .summary-hero .sh-swatch { width: 54px; height: 54px; border-radius: 50%; margin: 10px auto 12px; border: 3px solid rgba(255,255,255,.55); }
+  .summary-hero .sh-name { font-size: 21px; font-weight: 800; margin-bottom: 6px; }
+  .summary-hero .sh-desc { font-size: 13px; line-height: 1.5; color: #DDE4F5; max-width: 420px; margin: 0 auto 6px; }
+  .summary-hero .sh-best { font-size: 12px; color: #C9D2E8; }
+  .summary-hero .sh-note { font-size: 11px; color: #B7C1DD; margin-top: 12px; }
+
+  .test-card {
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .test-card .tc-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .test-card .tc-label { font-size: 12.5px; font-weight: 800; letter-spacing: .2px; }
+  .test-card .tc-score { font-size: 12.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .test-card .tc-headline { font-size: 15px; font-weight: 700; color: var(--primary); margin: 4px 0 8px; }
+  .test-card .tc-bar-track { height: 8px; border-radius: 5px; background: var(--bg); overflow: hidden; }
+  .test-card .tc-bar-fill { height: 100%; border-radius: 5px; transition: width .4s ease; }
+
+  /* ---- part 3 fork: quick vs thorough ---- */
+  .fork-card {
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    text-align: left;
+  }
+  .fork-card h3 { margin: 0 0 4px; font-size: 15.5px; font-weight: 800; color: var(--primary); }
+  .fork-card p { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+
+  /* ---- staircase (color-matching, thorough mode) ---- */
+  .staircase-meta { display:flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+  .staircase-canvas-wrap { display:flex; justify-content:center; margin: 6px 0 16px; }
+  .staircase-canvas-wrap canvas { width: 240px; height: 240px; border-radius: 16px; background: #BFBFBF; }
+  .gap-pad { display:grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); gap: 6px; justify-content:center; margin: 0 auto; }
+  .gap-btn {
+    grid-column: 2; border: none; border-radius: 12px; background: var(--white);
+    box-shadow: 0 2px 8px rgba(13,25,54,0.10); font-size: 20px; color: var(--primary);
+    cursor: pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .gap-btn:active { transform: scale(0.94); }
+  .gap-btn.gap-up { grid-row: 1; }
+  .gap-btn.gap-left { grid-row: 2; grid-column: 1; }
+  .gap-btn.gap-right { grid-row: 2; grid-column: 3; }
+  .gap-btn.gap-down { grid-row: 3; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+
+  <div class="content-wrap">
+  <header class="app-header">
+    <img class="logo-mark" src="logo1.png" alt="Hue-Man logo" />
+    <div class="wordmark">HUE-MAN</div>
+  </header>
+
+
+  <main>
+
+    <!-- ============ WELCOME ============ -->
+    <section class="screen active" id="screen-welcome">
+      <div class="card">
+        <h2 class="subtitle">Color Vision Screening</h2>
+        <h1 class="title">Help us test Hue-Man</h1>
+        <p class="copy">
+          This is the same three-part screening built into the Hue-Man app:
+          a <strong>plate test</strong>, a <strong>cap-sorting test</strong>, and a
+          <strong>quick color-matching test</strong>. It takes about 5&ndash;7 minutes.
+        </p>
+        <p class="copy">
+          This web version exists so we can get feedback from a wider group of people. 
+          It's a screening prototype for our capstone project, not a medical device.
+          It won't diagnose anything, but your results and feedback will directly
+          help with the improvement of the app.
+        </p>
+        <p class="copy">
+          For the plate test, please view this on a normally lit screen (not in
+          direct sunlight or a very dim room) and use your device's normal color
+          settings (turn off Night Light / True Tone / blue-light filters if you can).
+        </p>
+        <button class="btn btn-primary" onclick="goTo('screen-ishihara-intro')">Start screening</button>
+      </div>
+    </section>
+
+    <!-- ============ ISHIHARA INTRO ============ -->
+    <section class="screen" id="screen-ishihara-intro">
+      <div class="card">
+        <h2 class="subtitle">Part 1 of 3</h2>
+        <h1 class="title">Hue-Man Number Color Test</h1>
+        <p class="copy">
+          You'll see 14 circles made of colored dots. Most contain a number hidden
+          in the pattern. Type the number you see, or tell us if you don't see one
+          there's no wrong answer to worry about, just answer with whatever
+          you actually perceive.
+        </p>
+        <button class="btn btn-primary" onclick="startIshihara()">Start Assessment</button>
+      </div>
+    </section>
+
+    <!-- ============ ISHIHARA TEST ============ -->
+    <section class="screen" id="screen-ishihara">
+      <div class="progress-row">
+        <span id="ishihara-progress-label">Plate 1 of 14</span>
+        <span id="ishihara-progress-pct">7%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="ishihara-progress-fill" style="width:7%"></div></div>
+
+      <div class="card">
+        <div class="plate-wrap">
+          <div class="plate-frame"><img id="plate-image" alt="Number-color test plate" /></div>
+        </div>
+        <p class="plate-hint">What number do you see?</p>
+        <input class="text-input" id="plate-input" inputmode="numeric" pattern="[0-9]*" placeholder="Type a number" maxlength="4" oninput="sanitizePlateInput(this)" />
+        <div class="numpad" id="numpad">
+          <button type="button" class="numpad-btn" onclick="numpadPress('1')">1</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('2')">2</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('3')">3</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('4')">4</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('5')">5</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('6')">6</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('7')">7</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('8')">8</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('9')">9</button>
+          <button type="button" class="numpad-btn numpad-clear" onclick="numpadClear()">Clear</button>
+          <button type="button" class="numpad-btn" onclick="numpadPress('0')">0</button>
+          <button type="button" class="numpad-btn numpad-back" onclick="numpadBackspace()" aria-label="Backspace">&#9003;</button>
+        </div>
+        <button class="btn btn-gray" style="margin-top:10px;" onclick="setNoNumber()">I don't see a number in there</button>
+        <div class="btn-row">
+          <button class="btn btn-outline" id="ishihara-prev" onclick="ishiharaPrev()">Back</button>
+          <button class="btn btn-primary" id="ishihara-next" onclick="ishiharaNext()">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ISHIHARA RESULT (interim) ============ -->
+    <section class="screen" id="screen-ishihara-result">
+      <div class="card">
+        <h2 class="subtitle">Part 1 complete</h2>
+        <h1 class="title">Number Color Test result</h1>
+        <div id="ishihara-result-card"></div>
+        <p class="note" style="margin-top:0;">
+          This is just Part 1's read on its own. The full screening
+          combines all three parts on the results screen at the end.
+        </p>
+        <button class="btn btn-primary" style="margin-top:8px;" onclick="goTo('screen-transition-1')">Continue to Part 2</button>
+      </div>
+    </section>
+
+    <!-- ============ TRANSITION 1 ============ -->
+    <section class="screen" id="screen-transition-1">
+      <div class="card">
+        <h2 class="subtitle">Part 2 of 3</h2>
+        <h1 class="title">Cap Sorting Test</h1>
+        <p class="copy">
+          You'll see 15 colored caps and one fixed reference cap. Drag each cap
+          (or tap it) into place, one at a time, in whatever order makes the
+          smoothest color gradient, starting from the reference. Each cap you
+          place should blend into the one before it as closely as possible.
+        </p>
+        <p class="copy">
+          You can drag a placed cap to a different spot to reorder it, or drag
+          it back into the available row to remove it. This part tests how
+          finely you can tell apart small shifts in hue, not just whether you
+          can name colors, so take your time; there's no timer.
+        </p>
+        <button class="btn btn-primary" onclick="startFarnsworth()">Start Cap Sorting</button>
+      </div>
+    </section>
+
+    <!-- ============ FARNSWORTH ============ -->
+    <section class="screen" id="screen-farnsworth">
+      <div class="card">
+        <h2 class="subtitle">Part 2 of 3</h2>
+        <h1 class="title">Sort the caps</h1>
+        <p class="copy">
+          Starting from the reference cap, <strong>drag the caps below into the order
+          that makes the smoothest color gradient</strong>: each one should blend
+          into the next as closely as possible. Drag a placed cap to reorder it, or
+          back into the row above to remove it (tapping works too).
+        </p>
+
+        <div class="cap-pool-label">AVAILABLE CAPS</div>
+        <div class="cap-grid" id="cap-pool-row"></div>
+
+        <div class="cap-pool-label" style="margin-top:18px;">YOUR ORDER (reference first)</div>
+        <div class="cap-grid" id="cap-sequence-row"></div>
+
+        <div class="btn-row">
+          <button class="btn btn-outline" onclick="shuffleFarnsworth()">Shuffle again</button>
+          <button class="btn btn-primary" id="farnsworth-submit" onclick="submitFarnsworth()" disabled>Submit order</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FARNSWORTH RESULT (interim) ============ -->
+    <section class="screen" id="screen-farnsworth-result">
+      <div class="card">
+        <h2 class="subtitle">Part 2 complete</h2>
+        <h1 class="title">Cap Sorting Test result</h1>
+        <div id="farnsworth-result-card"></div>
+        <p class="note" style="margin-top:0;">
+          This is just Part 2's read on its own. The full screening
+          combines all three parts on the results screen at the end.
+        </p>
+        <button class="btn btn-primary" style="margin-top:8px;" onclick="goTo('screen-transition-2')">Continue to Part 3</button>
+      </div>
+    </section>
+
+    <!-- ============ TRANSITION 2 / PART 3 FORK ============ -->
+    <section class="screen" id="screen-transition-2">
+      <div class="card">
+        <h2 class="subtitle">Part 2 complete</h2>
+        <h1 class="title">Last part: color matching</h1>
+        <p class="copy">
+          Same choice the app gives you here: a quick fixed set of rounds, or a
+          slower adaptive test that hunts down the exact color difference you can
+          still tell apart on each axis.
+        </p>
+
+        <div class="fork-card">
+          <h3>Quick test</h3>
+          <p>15 rounds. Tap the one swatch that's a different color. About a minute.</p>
+          <button class="btn btn-primary" onclick="startDiscrimination()">Start Quick Test</button>
+        </div>
+
+        <div class="fork-card">
+          <h3>Thorough test</h3>
+          <p>
+            Adaptive: finds the smallest color difference you can reliably spot on
+            each of three axes (red&ndash;green x2, blue&ndash;yellow). Takes longer, gives a
+            more precise read than the quick test.
+          </p>
+          <button class="btn btn-gray" onclick="goTo('screen-staircase-intro')">Try Thorough Mode Instead</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DISCRIMINATION ============ -->
+    <section class="screen" id="screen-discrimination">
+      <div class="progress-row">
+        <span id="disc-progress-label">Round 1 of 15</span>
+        <span id="disc-progress-pct">7%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="disc-progress-fill" style="width:7%"></div></div>
+
+      <div class="card" style="text-align:center;">
+        <p class="plate-hint" style="margin-bottom:2px;">Tap the one square that's a different color</p>
+        <div class="swatch-row" id="swatch-row"></div>
+      </div>
+    </section>
+
+    <!-- ============ COLOR STAIRCASE INTRO (THOROUGH MODE) ============ -->
+    <section class="screen" id="screen-staircase-intro">
+      <div class="card">
+        <h2 class="subtitle">Part 3 of 3 &middot; Thorough</h2>
+        <h1 class="title">Instructions</h1>
+        <p class="copy">
+          Each plate hides a colored ring (a circle with a gap on one side) made of
+          dots, sitting in a field of grey noise dots. Find the gap and tap the arrow
+          that points the same way it does. If you can't tell, make your best guess.
+          Difficulty adapts as you answer; it gets harder after two correct answers
+          in a row, and eases off the moment you miss one.
+        </p>
+        <p class="copy">
+          <strong>Quick</strong> runs 15 rounds total (5 per axis). <strong>Standard</strong>
+          runs 42 (14 per axis) and gives a steadier read. This is screening only, not
+          a clinical diagnosis.
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-outline" onclick="startStaircase('quick')">Start Quick Test</button>
+          <button class="btn btn-primary" onclick="startStaircase('standard')">Start Standard Test</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COLOR STAIRCASE TEST (THOROUGH MODE) ============ -->
+    <section class="screen" id="screen-staircase">
+      <div class="staircase-meta">
+        <span id="stair-progress-label">Trial 1 of 15</span>
+        <span id="stair-axis-label"></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="stair-progress-fill" style="width:0%"></div></div>
+
+      <div class="card" style="text-align:center;">
+        <p class="plate-hint" style="margin-bottom:2px;">Which side is the ring's gap on?</p>
+        <div class="staircase-canvas-wrap"><canvas id="stair-canvas" width="480" height="480"></canvas></div>
+        <div class="gap-pad">
+          <button class="gap-btn gap-up" onclick="stairAnswer('up')" aria-label="Gap is up">&#8593;</button>
+          <button class="gap-btn gap-left" onclick="stairAnswer('left')" aria-label="Gap is left">&#8592;</button>
+          <button class="gap-btn gap-right" onclick="stairAnswer('right')" aria-label="Gap is right">&#8594;</button>
+          <button class="gap-btn gap-down" onclick="stairAnswer('down')" aria-label="Gap is down">&#8595;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ RESULTS ============ -->
+    <section class="screen" id="screen-results">
+      <div class="card">
+        <h2 class="subtitle">All done</h2>
+        <h1 class="title">Your screening results</h1>
+
+        <div id="results-capture">
+          <div class="summary-hero">
+            <div class="sh-eyebrow">Suggested profile</div>
+            <div class="sh-swatch" id="sh-swatch"></div>
+            <div class="sh-name" id="sh-name"></div>
+            <div class="sh-desc" id="sh-desc"></div>
+            <div class="sh-best" id="sh-best"></div>
+            <div class="sh-note">
+              Combined from every part you completed, not a locked-in diagnosis,
+              just this run's best-supported read.
+            </div>
+          </div>
+
+          <div id="test-cards"></div>
+        </div>
+
+        <button class="btn btn-outline" style="margin-top:4px;" id="save-image-btn" onclick="downloadResultsImage()">Save result as image</button>
+
+        <p class="note">
+          This is a screening aid for a thesis project, not a clinical diagnosis.
+        </p>
+      </div>
+
+      <div class="cta-card">
+        <h3>One more thing: got 2 minutes?</h3>
+        <p>
+          You just tried the real Hue-Man assessment. Head back to the survey
+          and let us know what felt clear, what felt confusing, and whether the
+          plates rendered okay on your device.
+        </p>
+        <button class="btn btn-blue" id="survey-btn" onclick="goBackToSurvey()">Return to the survey</button>
+      </div>
+
+      <button class="link-btn" style="margin-top:14px;" onclick="restartAll()">Take the screening again</button>
+    </section>
+
+  </main>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+}
+
+/* ============================================================
+   PART 1 - ISHIHARA-STYLE PLATE TEST
+   Same 14-plate answer key / scoring rule as the app's
+   ishihara_assessment_service.dart + answers.json.
+   ============================================================ */
+const ISHIHARA_PLATES = [
+  { id: 1,  content: "32", target_cvd: "protanopia",  is_diagnostic: true  },
+  { id: 2,  content: "2",  target_cvd: "deuteranopia", is_diagnostic: true  },
+  { id: 3,  content: "80", target_cvd: "protanopia",  is_diagnostic: true  },
+  { id: 4,  content: "12", target_cvd: "tritanopia",  is_diagnostic: false },
+  { id: 5,  content: "16", target_cvd: "control",      is_diagnostic: null  },
+  { id: 6,  content: "16", target_cvd: "protanopia",  is_diagnostic: true  },
+  { id: 7,  content: "37", target_cvd: "deuteranopia", is_diagnostic: true  },
+  { id: 8,  content: "71", target_cvd: "deuteranopia", is_diagnostic: true  },
+  { id: 9,  content: "56", target_cvd: "protanopia",  is_diagnostic: true  },
+  { id: 10, content: "53", target_cvd: "control",      is_diagnostic: null  },
+  { id: 11, content: "48", target_cvd: "tritanopia",  is_diagnostic: false },
+  { id: 12, content: "49", target_cvd: "deuteranopia", is_diagnostic: true  },
+  { id: 13, content: "60", target_cvd: "deuteranopia", is_diagnostic: true  },
+  { id: 14, content: "48", target_cvd: "protanopia",  is_diagnostic: true  },
+];
+
+// Real Ishihara-style plate images (same generator/assets used by the
+// Hue-Man app) live in ./ishihara/plate_0001.png ... plate_0014.png,
+// in the same order as ISHIHARA_PLATES above.
+function platePath(index) {
+  const n = String(index + 1).padStart(4, '0');
+  return `ishihara/plate_${n}.png`;
+}
+
+function hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let r=0,g=0,b=0;
+  if (h < 60)       { r=c; g=x; b=0; }
+  else if (h < 120) { r=x; g=c; b=0; }
+  else if (h < 180) { r=0; g=c; b=x; }
+  else if (h < 240) { r=0; g=x; b=c; }
+  else if (h < 300) { r=x; g=0; b=c; }
+  else              { r=c; g=0; b=x; }
+  return { r: Math.round((r+m)*255), g: Math.round((g+m)*255), b: Math.round((b+m)*255) };
+}
+let ishiharaIndex = 0;
+const ishiharaResponses = {};
+
+function startIshihara() {
+  ishiharaIndex = 0;
+  goTo('screen-ishihara');
+  renderIshiharaPlate();
+}
+
+function renderIshiharaPlate() {
+  const plate = ISHIHARA_PLATES[ishiharaIndex];
+  document.getElementById('plate-image').src = platePath(ishiharaIndex);
+  document.getElementById('plate-input').value = ishiharaResponses[plate.id] === 'Nothing' ? '' : (ishiharaResponses[plate.id] || '');
+  document.getElementById('ishihara-progress-label').textContent = `Plate ${ishiharaIndex + 1} of ${ISHIHARA_PLATES.length}`;
+  const pct = Math.round(((ishiharaIndex + 1) / ISHIHARA_PLATES.length) * 100);
+  document.getElementById('ishihara-progress-pct').textContent = pct + '%';
+  document.getElementById('ishihara-progress-fill').style.width = pct + '%';
+  document.getElementById('ishihara-prev').disabled = ishiharaIndex === 0;
+  document.getElementById('ishihara-next').textContent = ishiharaIndex === ISHIHARA_PLATES.length - 1 ? 'Finish part 1' : 'Next';
+}
+
+function numpadPress(digit) {
+  const inp = document.getElementById('plate-input');
+  if (inp.value.length >= 4) return;
+  inp.value += digit;
+}
+function numpadBackspace() {
+  const inp = document.getElementById('plate-input');
+  inp.value = inp.value.slice(0, -1);
+}
+function numpadClear() {
+  document.getElementById('plate-input').value = '';
+}
+function sanitizePlateInput(inp) {
+  inp.value = inp.value.replace(/[^0-9]/g, '').slice(0, 4);
+}
+
+function saveCurrentIshiharaAnswer() {
+  const plate = ISHIHARA_PLATES[ishiharaIndex];
+  const val = document.getElementById('plate-input').value.trim();
+  if (val.length > 0) ishiharaResponses[plate.id] = val;
+}
+
+function setNoNumber() {
+  const plate = ISHIHARA_PLATES[ishiharaIndex];
+  ishiharaResponses[plate.id] = 'Nothing';
+  document.getElementById('plate-input').value = '';
+  ishiharaNext();
+}
+
+function ishiharaNext() {
+  saveCurrentIshiharaAnswer();
+  if (ishiharaIndex === ISHIHARA_PLATES.length - 1) {
+    showIshiharaInterimResult();
+    return;
+  }
+  ishiharaIndex++;
+  renderIshiharaPlate();
+}
+function ishiharaPrev() {
+  saveCurrentIshiharaAnswer();
+  if (ishiharaIndex === 0) return;
+  ishiharaIndex--;
+  renderIshiharaPlate();
+}
+
+function scoreIshihara() {
+  let controlCorrect = 0, controlTotal = 0;
+  let protanTally = 0, deutanTally = 0, normalOnDiagnosticTally = 0;
+  let tritanMisses = 0, tritanTotal = 0;
+
+  for (const plate of ISHIHARA_PLATES) {
+    const raw = ishiharaResponses[plate.id];
+    if (raw === undefined) continue;
+    const answer = raw.trim();
+    const isCorrect = answer === plate.content;
+
+    if (plate.target_cvd === 'control') {
+      controlTotal++;
+      if (isCorrect) controlCorrect++;
+      continue;
+    }
+    if (plate.is_diagnostic === true) {
+      if (isCorrect) normalOnDiagnosticTally++;
+      else if (plate.target_cvd === 'protanopia') protanTally++;
+      else if (plate.target_cvd === 'deuteranopia') deutanTally++;
+    } else if (plate.target_cvd === 'tritanopia') {
+      tritanTotal++;
+      if (!isCorrect) tritanMisses++;
+    }
+  }
+
+  let diagnosis = 'normal';
+  if (protanTally > deutanTally && protanTally >= normalOnDiagnosticTally) diagnosis = 'likelyProtan';
+  else if (deutanTally > protanTally && deutanTally >= normalOnDiagnosticTally) diagnosis = 'likelyDeutan';
+  else if (protanTally > 0 && protanTally === deutanTally) diagnosis = 'inconclusive';
+
+  const headlineMap = {
+    normal: 'Likely Normal Color Vision',
+    likelyProtan: 'Pattern consistent with Protan-type deficiency',
+    likelyDeutan: 'Pattern consistent with Deutan-type deficiency',
+    inconclusive: 'Results inconclusive',
+  };
+  // Same anomaly-not-opia convention as the app's suggestedCvdType
+  // getters: a screening test can't tell -anomaly from -opia apart, so
+  // it lands on the partial variant. Inconclusive falls back to normal,
+  // same as ishihara_assessment_service.dart.
+  const suggestedTypeMap = { normal: 'normal', likelyProtan: 'protanomaly', likelyDeutan: 'deuteranomaly', inconclusive: 'normal' };
+
+  const diagnosticTotal = protanTally + deutanTally + normalOnDiagnosticTally;
+  const total = diagnosticTotal + controlTotal + tritanTotal;
+  const correct = normalOnDiagnosticTally + controlCorrect + (tritanTotal - tritanMisses);
+
+  return {
+    diagnosis, headline: headlineMap[diagnosis], suggestedType: suggestedTypeMap[diagnosis],
+    protanTally, deutanTally, normalOnDiagnosticTally,
+    controlFlag: controlTotal > 0 && controlCorrect < controlTotal,
+    tritanMisses, tritanTotal,
+    scoreLine: `${correct}/${total}`,
+    percent: total === 0 ? 1 : correct / total,
+  };
+}
+
+/* ============================================================
+   INTERIM (PER-PART) RESULT CARDS
+   Shown right after each part finishes, not just at the very end,
+   so a respondent can report each part's own suggested read
+   individually (e.g. for the feedback survey's accuracy check)
+   rather than only the combined profile on the final screen.
+   Reuses the same .test-card markup as the final results screen.
+   ============================================================ */
+function renderInterimTestCard(containerId, label, result, detailExtra, accentColor) {
+  const pct = Math.round((result.percent || 0) * 100);
+  const container = document.getElementById(containerId);
+  container.innerHTML = `
+    <div class="test-card">
+      <div class="tc-top">
+        <div class="tc-label" style="color:${accentColor}">${label.toUpperCase()}</div>
+        <div class="tc-score">${result.scoreLine || ''}</div>
+      </div>
+      <div class="tc-headline">${result.headline || result.severity}</div>
+      <div class="tc-bar-track"><div class="tc-bar-fill" style="width:${pct}%; background:${accentColor}"></div></div>
+      <div class="rb-detail" style="margin-top:8px;">${detailExtra}</div>
+    </div>
+  `;
+}
+
+function showIshiharaInterimResult() {
+  const ish = scoreIshihara();
+  const detail = `Protan-leaning misses: ${ish.protanTally} &middot; Deutan-leaning misses: ${ish.deutanTally} &middot; Correct on diagnostic plates: ${ish.normalOnDiagnosticTally}.` +
+      (ish.controlFlag ? ' One or more control plates were missed. Check your lighting/screen brightness.' : '') +
+      (ish.tritanTotal > 0 ? ` (${ish.tritanMisses}/${ish.tritanTotal} informational blue-yellow plates missed, not scored.)` : '');
+  renderInterimTestCard('ishihara-result-card', 'Number Color Test', ish, detail, 'var(--accent-blue)');
+  goTo('screen-ishihara-result');
+}
+
+/* ============================================================
+   PART 2 - FARNSWORTH D-15 STYLE CAP SORT
+   Same cap hues / circular-distance scoring / axis zones as the
+   app's farnsworth_cap.dart + FarnsworthResult.
+   ============================================================ */
+const FARNSWORTH_REF = { id: 0, hex: '#819FDA' };
+const FARNSWORTH_CAPS = [
+  { id: 1,  hex: '#81C1DA' }, { id: 2,  hex: '#81DAD2' }, { id: 3,  hex: '#81DAB1' },
+  { id: 4,  hex: '#81DA8F' }, { id: 5,  hex: '#94DA81' }, { id: 6,  hex: '#B5DA81' },
+  { id: 7,  hex: '#D7DA81' }, { id: 8,  hex: '#DABC81' }, { id: 9,  hex: '#DA9A81' },
+  { id: 10, hex: '#DA8188' }, { id: 11, hex: '#DA81AA' }, { id: 12, hex: '#DA81CC' },
+  { id: 13, hex: '#C781DA' }, { id: 14, hex: '#A581DA' }, { id: 15, hex: '#8481DA' },
+];
+
+// Both rows are fixed-length (15) slot arrays now, pool and sequence
+// alike, so a cap can be dragged into ANY slot in either row (not just
+// appended to the end); dropping onto an occupied slot swaps the two
+// caps rather than being rejected.
+let farnsworthPool = [];  // 15 slots; a slot holds a cap object or null
+let farnsworthSeq = [];   // 15 slots; the destination order (reference is separate, always first, never a drop target)
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startFarnsworth() {
+  shuffleFarnsworth();
+  goTo('screen-farnsworth');
+}
+
+function shuffleFarnsworth() {
+  farnsworthPool = shuffle(FARNSWORTH_CAPS);
+  farnsworthSeq = new Array(FARNSWORTH_CAPS.length).fill(null);
+  renderFarnsworth();
+}
+
+function renderFarnsworth() {
+  const poolRow = document.getElementById('cap-pool-row');
+  poolRow.innerHTML = '';
+  farnsworthPool.forEach((cap, idx) => {
+    const div = document.createElement('div');
+    div.dataset.zone = 'pool';
+    div.dataset.idx = idx;
+    if (cap) {
+      div.className = 'cap-slot filled';
+      div.style.background = cap.hex;
+      div.addEventListener('pointerdown', fwPointerDown);
+    } else {
+      div.className = 'cap-slot empty';
+    }
+    poolRow.appendChild(div);
+  });
+
+  const seqRow = document.getElementById('cap-sequence-row');
+  seqRow.innerHTML = '';
+  const refDiv = document.createElement('div');
+  refDiv.className = 'cap-slot filled ref-slot';
+  refDiv.style.background = FARNSWORTH_REF.hex;
+  seqRow.appendChild(refDiv);
+
+  farnsworthSeq.forEach((cap, idx) => {
+    const div = document.createElement('div');
+    div.dataset.zone = 'seq';
+    div.dataset.idx = idx;
+    if (cap) {
+      div.className = 'cap-slot filled';
+      div.style.background = cap.hex;
+      div.addEventListener('pointerdown', fwPointerDown);
+    } else {
+      div.className = 'cap-slot empty';
+    }
+    seqRow.appendChild(div);
+  });
+
+  document.getElementById('farnsworth-submit').disabled = farnsworthSeq.some(c => c === null);
+}
+
+/* ---- drag to place/reorder caps, with a tap-without-moving fallback ---- */
+let fwDrag = null;
+
+function fwPointerDown(e) {
+  const el = e.currentTarget;
+  const zone = el.dataset.zone, idx = Number(el.dataset.idx);
+  const arr = zone === 'pool' ? farnsworthPool : farnsworthSeq;
+  if (!arr[idx]) return;
+  e.preventDefault();
+  fwDrag = { zone, idx, startX: e.clientX, startY: e.clientY, moved: false, sourceEl: el, ghost: null };
+  document.addEventListener('pointermove', fwPointerMove);
+  document.addEventListener('pointerup', fwPointerUp, { once: true });
+}
+
+function fwPointerMove(e) {
+  if (!fwDrag) return;
+  const dx = e.clientX - fwDrag.startX, dy = e.clientY - fwDrag.startY;
+  if (!fwDrag.moved && Math.hypot(dx, dy) > 6) {
+    fwDrag.moved = true;
+    fwDrag.sourceEl.classList.add('dragging');
+    const cap = (fwDrag.zone === 'pool' ? farnsworthPool : farnsworthSeq)[fwDrag.idx];
+    const ghost = document.createElement('div');
+    ghost.className = 'cap-drag-ghost';
+    ghost.style.background = cap.hex;
+    document.body.appendChild(ghost);
+    fwDrag.ghost = ghost;
+  }
+  if (fwDrag.ghost) {
+    fwDrag.ghost.style.left = e.clientX + 'px';
+    fwDrag.ghost.style.top = e.clientY + 'px';
+  }
+}
+
+function fwPointerUp(e) {
+  document.removeEventListener('pointermove', fwPointerMove);
+  if (!fwDrag) return;
+  const drag = fwDrag;
+  fwDrag = null;
+  if (drag.ghost) drag.ghost.remove();
+  drag.sourceEl.classList.remove('dragging');
+
+  if (!drag.moved) {
+    fwHandleTap(drag.zone, drag.idx);
+    return;
+  }
+  const target = fwFindDropTarget(e.clientX, e.clientY);
+  if (target) fwMoveCap(drag.zone, drag.idx, target.zone, target.idx);
+}
+
+// A plain tap keeps working exactly like before: tap a pool cap to send
+// it to the next open sequence slot, tap a placed cap to send it back
+// to the next open pool slot.
+function fwHandleTap(zone, idx) {
+  if (zone === 'pool') {
+    const destIdx = farnsworthSeq.findIndex(c => c === null);
+    if (destIdx !== -1) fwMoveCap('pool', idx, 'seq', destIdx);
+  } else {
+    const destIdx = farnsworthPool.findIndex(c => c === null);
+    if (destIdx !== -1) fwMoveCap('seq', idx, 'pool', destIdx);
+  }
+}
+
+function fwMoveCap(sourceZone, sourceIdx, destZone, destIdx) {
+  if (sourceZone === destZone && sourceIdx === destIdx) return;
+  const sourceArr = sourceZone === 'pool' ? farnsworthPool : farnsworthSeq;
+  const destArr = destZone === 'pool' ? farnsworthPool : farnsworthSeq;
+  const movingCap = sourceArr[sourceIdx];
+  if (!movingCap) return;
+  const displaced = destArr[destIdx];
+  destArr[destIdx] = movingCap;
+  sourceArr[sourceIdx] = displaced; // swap; if the target was empty, displaced is just null
+  renderFarnsworth();
+}
+
+// Finds the slot under the pointer; if the drop lands slightly off a
+// slot's own rectangle (common on touch), falls back to whichever row
+// the pointer's Y coordinate is over and picks that row's nearest slot
+// by X position.
+function fwFindDropTarget(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const slot = el && el.closest ? el.closest('.cap-slot[data-zone]') : null;
+  if (slot) return { zone: slot.dataset.zone, idx: Number(slot.dataset.idx) };
+
+  const rows = [
+    { row: document.getElementById('cap-pool-row'), zone: 'pool' },
+    { row: document.getElementById('cap-sequence-row'), zone: 'seq' },
+  ];
+  for (const { row, zone } of rows) {
+    const rect = row.getBoundingClientRect();
+    if (y < rect.top - 12 || y > rect.bottom + 12) continue;
+    const slots = Array.from(row.querySelectorAll(`.cap-slot[data-zone="${zone}"]`));
+    let best = null, bestDist = Infinity;
+    for (const s of slots) {
+      const r = s.getBoundingClientRect();
+      const dist = Math.abs((r.left + r.width / 2) - x);
+      if (dist < bestDist) { bestDist = dist; best = s; }
+    }
+    if (best) return { zone, idx: Number(best.dataset.idx) };
+  }
+  return null;
+}
+
+function circularDistance(a, b, total) {
+  total = total || 16;
+  const diff = Math.abs(a - b);
+  return Math.min(diff, total - diff);
+}
+
+function scoreFarnsworth() {
+  const order = farnsworthSeq.map(c => c.id);
+  const chain = [0, ...order];
+  const steps = [];
+  for (let i = 0; i < chain.length; i++) {
+    const a = chain[i], b = chain[(i + 1) % chain.length];
+    steps.push({ a, b, dist: circularDistance(a, b) });
+  }
+  const TES = steps.reduce((s, st) => s + st.dist, 0);
+
+  let severity;
+  if (TES <= 16) severity = 'Normal Color Vision (no significant confusion)';
+  else if (TES <= 24) severity = 'Mild Color Vision Deficiency';
+  else if (TES <= 40) severity = 'Moderate Color Vision Deficiency';
+  else severity = 'Severe Color Vision Deficiency';
+
+  let axis = 'Inconclusive';
+  if (TES > 16) {
+    const zones = {
+      Protan: new Set([8, 9, 10, 0, 1, 2]),
+      Deutan: new Set([9, 10, 11, 1, 2, 3]),
+      Tritan: new Set([13, 14, 15, 5, 6, 7]),
+    };
+    const top5 = steps.slice().sort((x, y) => y.dist - x.dist).slice(0, 5);
+    const votes = { Protan: 0, Deutan: 0, Tritan: 0 };
+    for (const step of top5) {
+      for (const zoneName of Object.keys(zones)) {
+        if (zones[zoneName].has(step.a) || zones[zoneName].has(step.b)) {
+          votes[zoneName] += step.dist;
+        }
+      }
+    }
+    const maxVote = Math.max(votes.Protan, votes.Deutan, votes.Tritan);
+    const winners = Object.keys(votes).filter(k => votes[k] === maxVote);
+    axis = (maxVote > 0 && winners.length === 1) ? winners[0] : 'Inconclusive';
+  }
+
+  const isNormalRange = TES <= 16;
+  const suggestedTypeMap = { Protan: 'protanomaly', Deutan: 'deuteranomaly', Tritan: 'tritanomaly' };
+  const suggestedType = isNormalRange ? 'normal' : (suggestedTypeMap[axis] || null);
+  // Display-only 0-1 normalization, now representing SEVERITY (fill = how
+  // bad, not how good) so the bar actually reads as a severity meter.
+  // Scaled against 16 (perfect) -> 88 (worst possible circular-distance
+  // TES for a 15-cap sort) so severe results still show gradation instead
+  // of all clamping to the same value.
+  const percent = Math.max(0, Math.min(1, (TES - 16) / (88 - 16)));
+
+  return { TES, severity, axis, isNormalRange, suggestedType, percent, scoreLine: `Error score ${TES}` };
+}
+
+function submitFarnsworth() {
+  if (farnsworthSeq.some(c => c === null)) return;
+  showFarnsworthInterimResult();
+}
+
+function showFarnsworthInterimResult() {
+  const fw = scoreFarnsworth();
+  const detail = `Estimated axis: ${fw.axis}`;
+  renderInterimTestCard('farnsworth-result-card', 'Cap Sorting Test', fw, detail, '#8B5CF6');
+  goTo('screen-farnsworth-result');
+}
+
+/* ============================================================
+   PART 3 - COLOR DISCRIMINATION ("ODD ONE OUT") SCREENING
+   Same deck-building / accuracy / axis rule as the app's
+   color_confusion_trial.dart + the fixed 15-trial deck logic.
+   ============================================================ */
+const CONF_AXES = ['protan', 'deutan', 'tritan'];
+const CONF_BASE_HUE = { protan: 10, deutan: 130, tritan: 230 };
+const CONF_MAX_DELTA = { protan: 26, deutan: 26, tritan: 34 };
+const CONF_LEVELS = 5;
+const CONF_GRID = 5;
+
+let discDeck = [];
+let discIndex = 0;
+let discCorrect = 0;
+let discTotal = 0;
+let discAxisTallies = { protan: { correct: 0, total: 0 }, deutan: { correct: 0, total: 0 }, tritan: { correct: 0, total: 0 } };
+
+function buildDiscriminationDeck() {
+  let trials = [];
+  for (const axis of CONF_AXES) {
+    const baseHue = CONF_BASE_HUE[axis];
+    const maxDelta = CONF_MAX_DELTA[axis];
+    for (let level = 1; level <= CONF_LEVELS; level++) {
+      const delta = maxDelta * (CONF_LEVELS - level + 1) / CONF_LEVELS;
+      const base = hslToRgb(baseHue, 0.55, 0.62);
+      const odd = hslToRgb((baseHue + delta) % 360, 0.55, 0.62);
+      trials.push({ axis, level, base, odd, oddIndex: Math.floor(Math.random() * CONF_GRID) });
+    }
+  }
+  return shuffle(trials);
+}
+
+function startDiscrimination() {
+  discDeck = buildDiscriminationDeck();
+  discIndex = 0;
+  discCorrect = 0; discTotal = 0;
+  discAxisTallies = { protan: { correct: 0, total: 0 }, deutan: { correct: 0, total: 0 }, tritan: { correct: 0, total: 0 } };
+  discResultData = null;
+  stairResultData = null;
+  goTo('screen-discrimination');
+  renderDiscriminationTrial();
+}
+
+function rgbCss(c) { return `rgb(${c.r},${c.g},${c.b})`; }
+
+function renderDiscriminationTrial() {
+  const trial = discDeck[discIndex];
+  const row = document.getElementById('swatch-row');
+  row.innerHTML = '';
+  for (let i = 0; i < CONF_GRID; i++) {
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.style.background = rgbCss(i === trial.oddIndex ? trial.odd : trial.base);
+    sw.onclick = () => onSwatchTap(i, sw);
+    row.appendChild(sw);
+  }
+  document.getElementById('disc-progress-label').textContent = `Round ${discIndex + 1} of ${discDeck.length}`;
+  const pct = Math.round(((discIndex + 1) / discDeck.length) * 100);
+  document.getElementById('disc-progress-pct').textContent = pct + '%';
+  document.getElementById('disc-progress-fill').style.width = pct + '%';
+}
+
+function onSwatchTap(i, el) {
+  const trial = discDeck[discIndex];
+  const correct = i === trial.oddIndex;
+  discTotal++;
+  discAxisTallies[trial.axis].total++;
+  if (correct) { discCorrect++; discAxisTallies[trial.axis].correct++; }
+  el.classList.add('picked');
+  setTimeout(() => {
+    if (discIndex === discDeck.length - 1) {
+      discResultData = scoreDiscrimination();
+      stairResultData = null; // Quick and Thorough are a fork: only one fills the Part-3 slot
+      goTo('screen-results');
+      showResults();
+    } else {
+      discIndex++;
+      renderDiscriminationTrial();
+    }
+  }, 250);
+}
+
+function scoreDiscrimination() {
+  const overallAccuracy = discTotal === 0 ? 0 : discCorrect / discTotal;
+  const isNormalRange = overallAccuracy >= 0.8;
+  let likelyAxis = 'Inconclusive';
+  if (!isNormalRange) {
+    const entries = Object.entries(discAxisTallies).map(([k, v]) => [k, v.total ? v.correct / v.total : 1]);
+    entries.sort((a, b) => a[1] - b[1]);
+    const worst = entries[0];
+    const rest = entries.slice(1).map(e => e[1]);
+    const restAvg = rest.length ? rest.reduce((a, b) => a + b, 0) / rest.length : 1;
+    if (restAvg - worst[1] >= 0.25) {
+      likelyAxis = worst[0][0].toUpperCase() + worst[0].slice(1);
+    }
+  }
+  const headline = isNormalRange ? 'Good color discrimination' : 'Some difficulty with closely similar colors';
+  const suggestedTypeMap = { protan: 'protanomaly', deutan: 'deuteranomaly', tritan: 'tritanomaly' };
+  const suggestedType = isNormalRange ? 'normal' : (suggestedTypeMap[likelyAxis.toLowerCase()] || null);
+  return {
+    overallAccuracy, isNormalRange, likelyAxis, headline, suggestedType,
+    percent: overallAccuracy, scoreLine: `${discCorrect}/${discTotal}`,
+    label: 'Odd One Out (Quick)',
+  };
+}
+
+/* ============================================================
+   COMBINED PROFILE, using the same CvdType model + weighted-vote
+   combiner as models/cvd_type.dart + services/cvd_suggestion_combiner.dart.
+   Ishihara/Farnsworth each get a full vote, whichever Part-3 mode
+   ran (Quick discrimination OR Thorough staircase) gets a half
+   vote; a tie (or no signal at all) falls back to Normal Vision,
+   same as the app.
+   ============================================================ */
+const CVD_TYPES = {
+  normal: { name: 'Normal Vision', shortDescription: 'You can generally distinguish the full range of colors.', bestSeen: 'the full color spectrum', swatch: '#6EC6FF' },
+  protanomaly: { name: 'Protanomaly', shortDescription: 'A red-green deficiency affecting how red is perceived.', bestSeen: 'blues and yellows', swatch: '#E07A5F' },
+  deuteranomaly: { name: 'Deuteranomaly', shortDescription: 'A red-green deficiency affecting how green is perceived.', bestSeen: 'blues, purples, and yellows', swatch: '#6FCF97' },
+  tritanomaly: { name: 'Tritanomaly', shortDescription: 'A blue-yellow deficiency affecting how blue is perceived.', bestSeen: 'reds, pinks, and greens', swatch: '#F2C94C' },
+};
+
+function combineSuggestions(ishihara, farnsworth, thirdTest) {
+  const votes = {};
+  const vote = (type, weight) => {
+    if (!type || type === 'normal') return;
+    votes[type] = (votes[type] || 0) + weight;
+  };
+  vote(ishihara && ishihara.suggestedType, 1.0);
+  vote(farnsworth && farnsworth.suggestedType, 1.0);
+  vote(thirdTest && thirdTest.suggestedType, 0.5);
+
+  const entries = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return 'normal';
+  if (entries.length > 1 && entries[0][1] === entries[1][1]) return 'normal';
+  return entries[0][0];
+}
+
+/* ============================================================
+   COLOR STAIRCASE (THOROUGH MODE)
+   Adaptive 2-down-1-up staircase per axis, Landolt-C dot-ring
+   stimulus, same math as models/color_staircase_trial.dart +
+   services/color_staircase_service.dart + landolt_c_generator.dart,
+   ported to plain JS/canvas. The dot placement below uses a
+   jittered-grid pack rather than the app's full rejection-sampling
+   packer (much cheaper in a browser, same visual idea: a ring of
+   color-shifted dots in a field of randomly-lit grey noise dots).
+   ============================================================ */
+const STAIR_AXES = ['protan', 'deutan', 'tritan'];
+const STAIR_BASE_HUE = { protan: 10, deutan: 130, tritan: 230 }; // same anchors as CONF_BASE_HUE above
+const STAIR_REF_LIGHTNESS = 0.62;
+const STAIR_NOISE_L_MIN = 0.32, STAIR_NOISE_L_MAX = 0.82;
+const STAIR_CONFIG = { startFractionOfMax: 0.85, startStepFractionOfMax: 0.15, minStep: 2.5, floorDeltaE: 3.0 };
+// standard was 8 until a Monte Carlo check of this exact staircase logic showed
+// why that's too few: a single early wrong answer can register as an axis's
+// first reversal while currentDeltaE is still near the 0.85-of-max starting
+// point (often clamped at the axis ceiling), and with <=2 total reversals
+// stairThreshold uses that value un-averaged-away -- so one unlucky trial
+// could report "significant difficulty" for someone who got 7/8 right. At 14
+// trials that false-positive rate drops to roughly a third of what it was at
+// 8, with average usable reversals per axis rising enough for the existing
+// "discard the first reversal, average the rest" logic to actually smooth out
+// one bad trial instead of reporting it directly. (Making the discard rule
+// more aggressive instead of extending the run was tried first and made
+// things WORSE at low trial counts -- with only one reversal left after
+// discarding there's nothing left to average against.)
+const STAIR_MODE_TRIALS_PER_AXIS = { quick: 5, standard: 14 };
+
+// --- CIEDE2000, ported from color_staircase_service.dart's ciede2000DeltaE ---
+function _srgbLin(c) { const v = c / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+function _rgbToXyz(r, g, b) {
+  const R = _srgbLin(r), G = _srgbLin(g), B = _srgbLin(b);
+  return [
+    (R * 0.4124564 + G * 0.3575761 + B * 0.1804375) * 100,
+    (R * 0.2126729 + G * 0.7151522 + B * 0.0721750) * 100,
+    (R * 0.0193339 + G * 0.1191920 + B * 0.9503041) * 100,
+  ];
+}
+function _xyzToLab(xyz) {
+  const xn = 95.0489, yn = 100.0, zn = 108.8840, d = 6 / 29;
+  const f = t => (t > d * d * d ? Math.cbrt(t) : t / (3 * d * d) + 4 / 29);
+  const fx = f(xyz[0] / xn), fy = f(xyz[1] / yn), fz = f(xyz[2] / zn);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+function ciede2000(rgbA, rgbB) {
+  const lab1 = _xyzToLab(_rgbToXyz(rgbA.r, rgbA.g, rgbA.b));
+  const lab2 = _xyzToLab(_rgbToXyz(rgbB.r, rgbB.g, rgbB.b));
+  const [l1, a1, b1] = lab1, [l2, a2, b2] = lab2;
+  const rad = deg => deg * Math.PI / 180, deg = r => r * 180 / Math.PI;
+  const c1 = Math.hypot(a1, b1), c2 = Math.hypot(a2, b2);
+  const cBar = (c1 + c2) / 2;
+  const g = 0.5 * (1 - Math.sqrt(Math.pow(cBar, 7) / (Math.pow(cBar, 7) + Math.pow(25, 7))));
+  const a1p = (1 + g) * a1, a2p = (1 + g) * a2;
+  const c1p = Math.hypot(a1p, b1), c2p = Math.hypot(a2p, b2);
+  const hueOf = (ap, b) => { if (ap === 0 && b === 0) return 0; const h = deg(Math.atan2(b, ap)); return h < 0 ? h + 360 : h; };
+  const h1p = hueOf(a1p, b1), h2p = hueOf(a2p, b2);
+  const dLp = l2 - l1, dCp = c2p - c1p;
+  let dhp = 0;
+  if (c1p * c2p !== 0) { let dh = h2p - h1p; if (dh > 180) dh -= 360; if (dh < -180) dh += 360; dhp = dh; }
+  const dHp = 2 * Math.sqrt(c1p * c2p) * Math.sin(rad(dhp) / 2);
+  const lBarp = (l1 + l2) / 2, cBarp = (c1p + c2p) / 2;
+  let hBarp;
+  if (c1p * c2p === 0) { hBarp = h1p + h2p; }
+  else { const dh = Math.abs(h1p - h2p); if (dh <= 180) hBarp = (h1p + h2p) / 2; else if (h1p + h2p < 360) hBarp = (h1p + h2p + 360) / 2; else hBarp = (h1p + h2p - 360) / 2; }
+  const t = 1 - 0.17 * Math.cos(rad(hBarp - 30)) + 0.24 * Math.cos(rad(2 * hBarp)) + 0.32 * Math.cos(rad(3 * hBarp + 6)) - 0.20 * Math.cos(rad(4 * hBarp - 63));
+  const dTheta = 30 * Math.exp(-Math.pow((hBarp - 275) / 25, 2));
+  const rc = 2 * Math.sqrt(Math.pow(cBarp, 7) / (Math.pow(cBarp, 7) + Math.pow(25, 7)));
+  const sl = 1 + (0.015 * Math.pow(lBarp - 50, 2)) / Math.sqrt(20 + Math.pow(lBarp - 50, 2));
+  const sc = 1 + 0.045 * cBarp, sh = 1 + 0.015 * cBarp * t;
+  const rt = -Math.sin(rad(2 * dTheta)) * rc;
+  const termL = dLp / sl, termC = dCp / sc, termH = dHp / sh;
+  return Math.sqrt(termL * termL + termC * termC + termH * termH + rt * termC * termH);
+}
+
+// --- saturation-vs-deltaE curve per axis, cached per lightness bucket, same as _saturationCurveFor ---
+const _stairCurveCache = {};
+function _bucketL(l) { return Math.round(l / 0.01) * 0.01; }
+function _stairCurveFor(axis, lightness) {
+  const bucket = _bucketL(lightness);
+  const key = axis + '@' + bucket;
+  if (_stairCurveCache[key]) return _stairCurveCache[key];
+  const baseHue = STAIR_BASE_HUE[axis];
+  const grey = hslToRgb(0, 0, bucket);
+  const sats = [], deltas = [];
+  for (let s = 0; s <= 0.95; s += 0.01) {
+    const ring = hslToRgb(baseHue, s, bucket);
+    sats.push(s);
+    deltas.push(ciede2000(grey, ring));
+  }
+  const curve = { sats, deltas };
+  _stairCurveCache[key] = curve;
+  return curve;
+}
+function stairMaxDeltaE(axis) {
+  const curve = _stairCurveFor(axis, STAIR_REF_LIGHTNESS);
+  return Math.max(...curve.deltas);
+}
+function stairSaturationForDeltaE(axis, targetDeltaE, lightness) {
+  const curve = _stairCurveFor(axis, lightness);
+  let bestI = 0, bestDiff = Infinity;
+  for (let i = 0; i < curve.deltas.length; i++) {
+    const diff = Math.abs(curve.deltas[i] - targetDeltaE);
+    if (diff < bestDiff) { bestDiff = diff; bestI = i; }
+  }
+  return curve.sats[bestI];
+}
+function stairRingColor(axis, targetDeltaE, lightness) {
+  return hslToRgb(STAIR_BASE_HUE[axis], stairSaturationForDeltaE(axis, targetDeltaE, lightness), lightness);
+}
+
+// --- 2-down-1-up staircase state machine, one per axis, same rule as StaircaseState.next ---
+function stairInitialState(axis) {
+  const max = stairMaxDeltaE(axis);
+  return {
+    axis,
+    currentDeltaE: max * STAIR_CONFIG.startFractionOfMax,
+    stepSize: max * STAIR_CONFIG.startStepFractionOfMax,
+    lastDirection: 'none',
+    reversals: [],
+    trialsRun: 0,
+    consecutiveCorrect: 0,
+    ceilingDeltaE: max,
+  };
+}
+function stairAdvance(state, correct) {
+  if (correct) {
+    const streak = state.consecutiveCorrect + 1;
+    if (streak < 2) return { ...state, trialsRun: state.trialsRun + 1, consecutiveCorrect: streak };
+    return _stairStep(state, 'harder');
+  }
+  return _stairStep(state, 'easier');
+}
+function _stairStep(state, direction) {
+  const isReversal = state.lastDirection !== 'none' && direction !== state.lastDirection;
+  let newStep = state.stepSize;
+  const newReversals = state.reversals.slice();
+  if (isReversal) {
+    newReversals.push(state.currentDeltaE);
+    newStep = Math.min(Math.max(state.stepSize / 2, STAIR_CONFIG.minStep), state.stepSize);
+  }
+  const raw = direction === 'harder' ? state.currentDeltaE - newStep : state.currentDeltaE + newStep;
+  const newDeltaE = Math.min(Math.max(raw, STAIR_CONFIG.floorDeltaE), state.ceilingDeltaE);
+  return {
+    ...state, currentDeltaE: newDeltaE, stepSize: newStep, lastDirection: direction,
+    reversals: newReversals, trialsRun: state.trialsRun + 1, consecutiveCorrect: 0,
+  };
+}
+function stairThreshold(state, trialsPerAxis) {
+  if (state.trialsRun < trialsPerAxis) return null;
+  if (state.reversals.length === 0) return state.currentDeltaE;
+  const usable = state.reversals.length > 2 ? state.reversals.slice(1) : state.reversals;
+  return usable.reduce((a, b) => a + b, 0) / usable.length;
+}
+// True when this axis's threshold rests on 0-1 reversals -- a single turning
+// point (or none) reported with nothing to average it against. Not a
+// difficulty signal, a RELIABILITY signal on the threshold/severity above.
+function stairLowConfidence(state) {
+  return state.reversals.length < 2;
+}
+
+let stairMode = 'standard';
+let stairTrialsPerAxis = 8;
+let stairStates = {};
+let stairCursor = 0;
+let stairTrialsDone = 0;
+let stairTotalTrials = 15;
+let stairCurrentAxis = null;
+let stairCurrentGap = null;
+let stairAnswering = false;
+let stairResultData = null;
+let discResultData = null; // whichever of discResultData/staircase actually ran fills the "Part 3" slot
+
+function startStaircase(mode) {
+  stairMode = mode;
+  stairTrialsPerAxis = STAIR_MODE_TRIALS_PER_AXIS[mode];
+  stairTotalTrials = stairTrialsPerAxis * 3;
+  stairStates = { protan: stairInitialState('protan'), deutan: stairInitialState('deutan'), tritan: stairInitialState('tritan') };
+  stairCursor = 0;
+  stairTrialsDone = 0;
+  stairResultData = null;
+  goTo('screen-staircase');
+  stairLoadNextTrial();
+}
+
+function _stairNextAxis() {
+  const unconverged = STAIR_AXES.filter(a => stairStates[a].trialsRun < stairTrialsPerAxis);
+  if (unconverged.length === 0) return null;
+  const axis = unconverged[stairCursor % unconverged.length];
+  stairCursor++;
+  return axis;
+}
+
+const GAP_DIRS = ['up', 'right', 'down', 'left'];
+const GAP_CENTER_DEG = { right: 0, down: 90, left: 180, up: 270 };
+function _angularDist(a, b) { let d = Math.abs(a - b) % 360; if (d > 180) d = 360 - d; return d; }
+
+function stairLoadNextTrial() {
+  const axis = _stairNextAxis();
+  if (axis === null) { stairFinish(); return; }
+  stairCurrentAxis = axis;
+  stairCurrentGap = GAP_DIRS[Math.floor(Math.random() * 4)];
+  stairAnswering = false;
+  document.getElementById('stair-progress-label').textContent = `Trial ${stairTrialsDone + 1} of ${stairTotalTrials}`;
+  document.getElementById('stair-axis-label').textContent = axis[0].toUpperCase() + axis.slice(1) + ' axis';
+  const pct = Math.round((stairTrialsDone / stairTotalTrials) * 100);
+  document.getElementById('stair-progress-fill').style.width = pct + '%';
+  renderStairCanvas(axis, stairStates[axis].currentDeltaE, stairCurrentGap);
+}
+
+function renderStairCanvas(axis, deltaE, gapDir) {
+  const canvas = document.getElementById('stair-canvas');
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const center = size / 2;
+  const plateR = center;
+  const innerR = plateR * 0.30, outerR = plateR * 0.48;
+  const gapCenter = GAP_CENTER_DEG[gapDir];
+  const gapHalfWidth = 22;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(center, center, plateR, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = '#BFBFBF';
+  ctx.fillRect(0, 0, size, size);
+
+  // Jittered-grid dot pack filling the whole disc (cheaper stand-in for
+  // the app's rejection-sampling packer; see the comment above this
+  // section for why).
+  const cell = size / 34;
+  for (let gy = 0; gy * cell < size; gy++) {
+    for (let gx = 0; gx * cell < size; gx++) {
+      const jx = (Math.random() - 0.5) * cell * 0.5;
+      const jy = (Math.random() - 0.5) * cell * 0.5;
+      const x = gx * cell + cell / 2 + jx;
+      const y = gy * cell + cell / 2 + jy;
+      const dx = x - center, dy = y - center;
+      const r = Math.hypot(dx, dy);
+      if (r > plateR) continue;
+      const angleDeg = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      const inAnnulus = r >= innerR && r <= outerR;
+      const inGap = _angularDist(angleDeg, gapCenter) <= gapHalfWidth;
+      const isRing = inAnnulus && !inGap;
+      const lightness = STAIR_NOISE_L_MIN + Math.random() * (STAIR_NOISE_L_MAX - STAIR_NOISE_L_MIN);
+      const color = isRing ? stairRingColor(axis, deltaE, lightness) : hslToRgb(0, 0, lightness);
+      const radius = cell * 0.42 * (0.6 + Math.random() * 0.4);
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = rgbCss(color);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function stairAnswer(chosen) {
+  if (stairAnswering) return;
+  stairAnswering = true;
+  const correct = chosen === stairCurrentGap;
+  stairStates[stairCurrentAxis] = stairAdvance(stairStates[stairCurrentAxis], correct);
+  stairTrialsDone++;
+  stairLoadNextTrial();
+}
+
+// keyboard arrows as an alternate answer input, same as the app's key handler
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('screen-staircase').classList.contains('active')) return;
+  const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+  if (map[e.key]) stairAnswer(map[e.key]);
+});
+
+function stairFinish() {
+  const thresholds = {}, maxima = {}, severityByAxis = {}, reversalCounts = {}, lowConfidenceByAxis = {};
+  for (const axis of STAIR_AXES) {
+    thresholds[axis] = stairThreshold(stairStates[axis], stairTrialsPerAxis);
+    maxima[axis] = stairStates[axis].ceilingDeltaE;
+    severityByAxis[axis] = Math.max(0, Math.min(1, thresholds[axis] / maxima[axis]));
+    reversalCounts[axis] = stairStates[axis].reversals.length;
+    lowConfidenceByAxis[axis] = stairLowConfidence(stairStates[axis]);
+  }
+  let worstAxis = STAIR_AXES[0];
+  for (const axis of STAIR_AXES) if (severityByAxis[axis] > severityByAxis[worstAxis]) worstAxis = axis;
+  const worstSeverity = severityByAxis[worstAxis];
+
+  let headline;
+  if (worstSeverity < 0.25) headline = 'Good color discrimination across all axes';
+  else if (worstSeverity < 0.5) headline = `Mild difficulty on the ${worstAxis} axis`;
+  else if (worstSeverity < 0.75) headline = `Noticeable difficulty on the ${worstAxis} axis`;
+  else headline = `Significant difficulty on the ${worstAxis} axis`;
+  // Only a DIFFICULTY headline gets hedged, never "Good" -- a low-confidence
+  // "good" result just means we're less sure how good, nothing to soften.
+  if (worstSeverity >= 0.25 && lowConfidenceByAxis[worstAxis]) {
+    headline += ', based on very few reversals, treat as tentative';
+  }
+
+  const suggestedTypeMap = { protan: 'protanomaly', deutan: 'deuteranomaly', tritan: 'tritanomaly' };
+  const suggestedType = worstSeverity < 0.25 ? 'normal' : suggestedTypeMap[worstAxis];
+
+  stairResultData = {
+    thresholds, maxima, severityByAxis, reversalCounts, lowConfidenceByAxis, worstAxis, worstSeverity, headline, suggestedType,
+    percent: 1 - worstSeverity,
+    scoreLine: `${worstAxis[0].toUpperCase() + worstAxis.slice(1)} \u0394E ${thresholds[worstAxis].toFixed(1)}`,
+    label: 'Odd One Out (Thorough)',
+  };
+  discResultData = null; // Quick and Thorough are a fork, not a pair: only one fills this slot
+  goTo('screen-results');
+  showResults();
+}
+
+/* ============================================================
+   RESULTS
+   ============================================================ */
+function showResults() {
+  const ish = scoreIshihara();
+  const fw = scoreFarnsworth();
+  // Whichever of Quick (discResultData) / Thorough (stairResultData)
+  // actually ran fills the Part-3 slot, the same "one produces the other's
+  // slot" fork the app's cvd_suggestion_combiner.dart documents.
+  const third = discResultData || stairResultData;
+
+  const suggested = combineSuggestions(ish, fw, third);
+  const info = CVD_TYPES[suggested] || CVD_TYPES.normal;
+  document.getElementById('sh-swatch').style.background = info.swatch;
+  document.getElementById('sh-name').textContent = info.name;
+  document.getElementById('sh-desc').textContent = info.shortDescription;
+  document.getElementById('sh-best').textContent = `Colors best seen: ${info.bestSeen}`;
+
+  const accents = { ishihara: 'var(--accent-blue)', farnsworth: '#8B5CF6', third: '#2BB7A6' };
+  const entries = [
+    { key: 'ishihara', label: 'Number Color Test', result: ish, detailExtra:
+        `Protan-leaning misses: ${ish.protanTally} &middot; Deutan-leaning misses: ${ish.deutanTally} &middot; Correct on diagnostic plates: ${ish.normalOnDiagnosticTally}.` +
+        (ish.controlFlag ? ' One or more control plates were missed. Check your lighting/screen brightness.' : '') +
+        (ish.tritanTotal > 0 ? ` (${ish.tritanMisses}/${ish.tritanTotal} informational blue-yellow plates missed, not scored.)` : '') },
+    { key: 'farnsworth', label: 'Cap Sorting Test', result: fw, detailExtra: `Total Error Score: ${fw.TES} &middot; Estimated axis: ${fw.axis}` },
+  ];
+  if (third) {
+    entries.push({
+      key: 'third', label: third.label, result: third,
+      detailExtra: third === discResultData
+        ? `Overall accuracy: ${Math.round(third.overallAccuracy * 100)}%` + (third.likelyAxis !== 'Inconclusive' ? ` &middot; Most difficulty on: ${third.likelyAxis}` : '')
+        : `Per-axis \u0394E threshold: Protan ${third.thresholds.protan.toFixed(1)}, Deutan ${third.thresholds.deutan.toFixed(1)}, Tritan ${third.thresholds.tritan.toFixed(1)} (lower = sharper discrimination).` +
+          (third.lowConfidenceByAxis && Object.values(third.lowConfidenceByAxis).some(Boolean)
+            ? ` Axes marked tentative (${Object.entries(third.lowConfidenceByAxis).filter(([, v]) => v).map(([a]) => a[0].toUpperCase() + a.slice(1)).join(', ')}) had too few reversals to average out an unlucky trial.`
+            : ''),
+    });
+  }
+
+  const container = document.getElementById('test-cards');
+  container.innerHTML = '';
+  for (const entry of entries) {
+    const pct = Math.round((entry.result.percent || 0) * 100);
+    const card = document.createElement('div');
+    card.className = 'test-card';
+    card.innerHTML = `
+      <div class="tc-top">
+        <div class="tc-label" style="color:${accents[entry.key]}">${entry.label.toUpperCase()}</div>
+        <div class="tc-score">${entry.result.scoreLine || ''}</div>
+      </div>
+      <div class="tc-headline">${entry.result.headline || entry.result.severity}</div>
+      <div class="tc-bar-track"><div class="tc-bar-fill" style="width:${pct}%; background:${accents[entry.key]}"></div></div>
+      <div class="rb-detail" style="margin-top:8px;">${entry.detailExtra}</div>
+    `;
+    container.appendChild(card);
+  }
+}
+
+/* ============================================================
+   SAVE RESULT AS IMAGE
+   Renders #results-capture (the hero + per-test cards, not the
+   surrounding chrome/buttons) to a PNG via html2canvas and triggers
+   a download, same idea as the app's PNG export off a
+   RepaintBoundary, just done client-side in the browser instead.
+   ============================================================ */
+function downloadResultsImage() {
+  const target = document.getElementById('results-capture');
+  const btn = document.getElementById('save-image-btn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Preparing image...';
+
+  html2canvas(target, { backgroundColor: '#ffffff', scale: 2, useCORS: true })
+    .then(canvas => {
+      const link = document.createElement('a');
+      link.download = `hueman_result_${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    })
+    .catch(() => {
+      alert("Couldn't generate the image. A screenshot works too.");
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    });
+}
+
+/* ============================================================
+   FEEDBACK SURVEY HANDOFF
+   Replace SURVEY_URL once the survey form is built. The flow is
+   survey -> assessment -> survey, so this just sends the person
+   back to that same survey link.
+   ============================================================ */
+const SURVEY_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdWfTeNXZLnBTo0B04UBhgAreYamzWBhKW7A9TtMmpy1-iNYA/viewform?usp=header";
+
+function goBackToSurvey() {
+  if (SURVEY_URL) {
+    window.location.href = SURVEY_URL;
+  } else {
+    alert('Survey link goes here once it\'s ready, for now this is just a placeholder button.');
+  }
+}
+
+function restartAll() {
+  for (const k in ishiharaResponses) delete ishiharaResponses[k];
+  discResultData = null;
+  stairResultData = null;
+  goTo('screen-welcome');
+}
+</script>
+</body>
+</html>
