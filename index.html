@@ -641,19 +641,13 @@
       </div>
 
       <div class="cta-card">
-        <h3>Go back to survey?</h3>
+        <h3>One more thing: got 2 minutes?</h3>
         <p>
           You just tried the real Hue-Man assessment. Head back to the survey
           and let us know what felt clear, what felt confusing, and whether the
           plates rendered okay on your device.
         </p>
-          <button
-    class="btn btn-blue"
-    id="survey-btn"
-    onclick="window.open('YOUR_SURVEY_LINK_HERE', '_blank')"
-  >
-    Return to the survey
-  </button>
+        <button class="btn btn-blue" id="survey-btn" onclick="goBackToSurvey()">Return to the survey</button>
       </div>
 
       <button class="link-btn" style="margin-top:14px;" onclick="restartAll()">Take the screening again</button>
@@ -1674,7 +1668,7 @@ const SURVEY_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdWfTeNXZLnBTo0B04U
 
 function goBackToSurvey() {
   if (SURVEY_URL) {
-    window.location.href = SURVEY_URL;
+    window.open(SURVEY_URL, '_blank', 'noopener');
   } else {
     alert('Survey link goes here once it\'s ready, for now this is just a placeholder button.');
   }
